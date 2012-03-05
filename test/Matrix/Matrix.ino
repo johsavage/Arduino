@@ -6,47 +6,27 @@ int NUM_BOARDS = 2;
 char colors[8] = { 
   BLACK, RED, GREEN, BLUE, ORANGE, MAGENTA, TEAL, WHITE };
 
-
-/*
-byte spectrum[]={
- // RED
- RGB(7, 1, 0), RGB(7, 2, 0), RGB(7, 3, 0), RGB(7, 4, 0), RGB(7, 5, 0), RGB(7, 6, 0), RGB(7, 7, 0), 
- // YELLOW
- RGB(6, 7, 0), RGB(5, 7, 0), RGB(4, 7, 0), RGB(3, 7, 0), RGB(2, 7, 0), RGB(1, 7, 0), RGB(0, 7, 0), 
- // GREEN
- RGB(0, 7, 1), RGB(0, 7, 1), RGB(0, 7, 2), RGB(0, 7, 2), RGB(0, 7, 2), RGB(0, 7, 3), RGB(0, 7, 3), 
- // CYAN
- RGB(0, 6, 3), RGB(0, 5, 3), RGB(0, 4, 3), RGB(0, 3, 3), RGB(0, 2, 3), RGB(0, 1, 3), RGB(0, 0, 3), 
- // BLUE
- RGB(1, 0, 3), RGB(2, 0, 3), RGB(3, 0, 3), RGB(4, 0, 3), RGB(5, 0, 3), RGB(6, 0, 3), RGB(7, 0, 3), 
- // MAGENTA
- RGB(7, 0, 2), RGB(7, 0, 2), RGB(7, 0, 1), RGB(7, 0, 1), RGB(7, 0, 1), RGB(7, 0, 0), RGB(7, 0, 0), 
- };
- 
- */
-
-const char smileyFace[] = {
+const byte smileyFace[] = {
   0x0,0x26,0x46,0x40,0x40,0x46,0x26,0x0};
 
-int screen[16];
+unsigned int rainPositions[16];
 
 void setup()
 {
   delay(5000); 
   Serial.begin(115200);
 
+  // Clear array
   for(int i=0;i<16;i++)
   {
-    screen[i] = 0;
+    rainPositions[i] = 0;
 
   }
 
-
   RGBMatrix.begin(NUM_BOARDS);
+  displayBoards();
 
   randomSeed(analogRead(0));
-
-  displayBoards();
 }
 
 void displayMessage(void)
@@ -74,7 +54,7 @@ void displayRandom()
 {
   RGBMatrix.clear();
 
-  for(int count=0; count<500; count++)
+  for(int count=0; count<2000; count++)
   {
     RGBMatrix.fillPixel(random(NUM_BOARDS), random(8), random(8), colors[random(8)]); 
     RGBMatrix.display();
@@ -259,35 +239,37 @@ void displayFrames()
 void displayFace(void)
 {
   RGBMatrix.clear();
+  int count=0;
 
 
-  for(int color=1; color<7; color++)
-  {
-
-    for(int board=0; board<NUM_BOARDS; board++)
+    for(int color=1; color<255; color++)
     {
 
-      for(int column=0; column<NUM_COLUMNS; column++)
+      for(int board=0; board<NUM_BOARDS; board++)
       {
-        for(int row=0; row<NUM_ROWS; row++)
-        {
-          if( smileyFace[(7-column)] & (1<<row))
-          {
-            RGBMatrix.fillPixel(board, row, column, colors[color]);
 
-            //screenBuffer[screen].pixel[row*8+column]=color;
-          }
-          else 
+        for(int column=0; column<NUM_COLUMNS; column++)
+        {
+          for(int row=0; row<NUM_ROWS; row++)
           {
-            RGBMatrix.fillPixel(0, row, column, BLACK);
-            //screenBuffer[screen].pixel[row*8+column]=BLACK;
+            if( smileyFace[(7-column)] & (1<<row))
+            {
+              RGBMatrix.fillPixel(board, row, column, color);
+
+              //rainPositionsBuffer[rainPositions].pixel[row*8+column]=color;
+            }
+            else 
+            {
+              RGBMatrix.fillPixel(0, row, column, BLACK);
+              //rainPositionsBuffer[rainPositions].pixel[row*8+column]=BLACK;
+            }
           }
         }
       }
-    }
 
-    RGBMatrix.display();
-    delay(100);
+      RGBMatrix.display();
+      delay(50);
+
   }
 
 }
@@ -296,85 +278,102 @@ void displayFace(void)
 void displayRain()
 {
 
-  char rowPos = 0;
-  int number = 0;
-  int count = 0;
-  int board = 0;
-  int column = 0;
-  
+  unsigned int randomNumber, currentBoard, currentColumn, rowPosition;
+  unsigned int count;
+
+  randomNumber = 0; currentBoard = 0; currentColumn = 0; rowPosition = 0; count=0;
+
   RGBMatrix.clear();
 
-  while(count < 100)
+  // Number or interations
+  while(count < 500)
   {
 
-    number = random(16);
+    // Generate random number indicates column rain drop will start from
+      randomNumber = random(16);
 
-    if( screen[number] == 0)
+      if( rainPositions[randomNumber] == 0)
+      {
+        rainPositions[randomNumber] = 1;
+      }
+    
+    // Increase rain drop row positions
+    for( int i=0; i<16; i++)
     {
-      screen[number] = 1;
+      if(rainPositions[i] > 0)
+      {
+        rainPositions[i]++;
+      }
+
+      // Reset column once drop has left the rainPositions
+      if( rainPositions[i] > 10)
+      {
+        rainPositions[i] = 0;
+      }
     }
 
+    // Display rain drops
+    // NOTE: Need fix for NUM_BOARDS
+ 
     for( int i=0; i<16; i++ )
     {
+      // Set current board and column
       if( i > 7 )
       {
-        board = 1;
-        column = i-7;
+        currentBoard = 1;
+        currentColumn = i-7;
       }
       else
       {
-        board = 0;
-        column = i;
+        currentBoard = 0;
+        currentColumn = i;
       }
-      
-      
-      if( screen[i] > 0 )
+
+
+      // Rain drop waiting to be displayed
+      if( rainPositions[i] > 0 )
       {
 
+        // Iterate through the rows
         for(int row=0; row<NUM_ROWS; row++)
         {
 
-          if( row == screen[i]-1)
+          // Rain drop exists on current row
+          if( row == rainPositions[i]-1)
           {
-            if( screen[i]-1 < 8 )
-              RGBMatrix.fillPixel(board, screen[i]-1, column, TEAL);  
-
-            if( screen[i]-1 > 0 )
+            // Front of drop color
+            if( rainPositions[i]-1 < 8 )
             {
-              if( screen[i]-2 < 8)
-                RGBMatrix.fillPixel(board, screen[i]-2, column, BLUE);  
+              RGBMatrix.fillPixel(currentBoard, rainPositions[i]-1, currentColumn, TEAL);  
+            }
+            
+            // Behind drop color
+            if( rainPositions[i]-1 > 0 )
+            {
+              if( rainPositions[i]-2 < 8)
+              {
+                RGBMatrix.fillPixel(currentBoard, rainPositions[i]-2, currentColumn, BLUE);  
+              }  
             }
 
           }
           else
           {
-            if( screen[i]-1 >= 0 and screen[i]-1 < 10 )
+            // Clear previous rain drop position
+            if( rainPositions[i]-1 >= 0 and rainPositions[i]-1 < 10 )
             {
-              if( screen[i]-3 <= 7)
-                RGBMatrix.fillPixel(board, screen[i]-3, column, BLACK);
-            }  
+              if( rainPositions[i]-3 <= 7)
+              {
+                RGBMatrix.fillPixel(currentBoard, rainPositions[i]-3, currentColumn, BLACK);
+              } 
+            } 
           }
 
-
-
         }  
+
         RGBMatrix.display();
-        delay(2);
+        delay(10);
 
-      }
-    }
-
-    // Increase rain drop positions
-    for( int i=0; i<16; i++)
-    {
-      if(screen[i] > 0)
-      {
-        screen[i]++;
-      }
-
-      if( screen[i] > 10)
-      {
-        screen[i] = 0;
       }
     }
 
@@ -391,7 +390,7 @@ void loop()
 
   //displayMessage(); 
   //  
-  //displayRandom();
+  displayRandom();
   //displayFrame();
   //displayFillColors();
   //displayFillRow();
@@ -400,9 +399,11 @@ void loop()
 
   //displayFace();
 
-  displayRain();
+  //displayRain();
   displayBoards();
 }
+
+
 
 
 
